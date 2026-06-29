@@ -81,11 +81,17 @@ const drawMixedWidthText = (
 export const generateStickerCanvas = async (config: StickerConfig): Promise<HTMLCanvasElement> => {
   if ('fonts' in document) {
     const fontName = config.fontFamily === 'serif' ? 'Noto Serif TC' : 'Noto Sans TC';
+    const fontLoadText = config.titleLines
+      .map(({ text }) => text)
+      .join('')
+      .trim() || '中文123ABC';
+
     await Promise.all([
-      document.fonts.load(`400 100px "${fontName}"`),
-      document.fonts.load(`700 100px "${fontName}"`),
-      document.fonts.load(`900 100px "${fontName}"`)
+      document.fonts.load(`400 100px "${fontName}"`, fontLoadText),
+      document.fonts.load(`700 100px "${fontName}"`, fontLoadText),
+      document.fonts.load(`900 100px "${fontName}"`, fontLoadText)
     ]);
+    await document.fonts.ready;
   }
 
   const canvas = document.createElement('canvas');
