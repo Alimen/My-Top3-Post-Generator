@@ -1,4 +1,4 @@
-import { StickerConfig } from '../types';
+import { FontFamily, StickerConfig } from '../types';
 
 // Helper to load image
 const loadImage = (url: string): Promise<HTMLImageElement> => {
@@ -17,22 +17,77 @@ const loadImage = (url: string): Promise<HTMLImageElement> => {
   });
 };
 
-const getFontFamilyString = (family: string): string => {
+const getFontFamilyString = (family: FontFamily): string => {
   switch (family) {
     case 'serif':
       return '"Noto Serif TC", "Songti TC", "BiauKai", "MingLiU", "Times New Roman", serif';
     case 'sans':
       return '"Noto Sans TC", "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif';
-    case 'rounded':
-      return '"Hiragino Maru Gothic ProN", "Yu Rounded", "Varela Round", sans-serif';
-    case 'kai':
-      return '"DFKai-SB", "BiauKai", "KaiTi", serif';
-    default:
-      return 'sans-serif';
   }
 };
 
+const SECONDARY_ALPHANUMERIC_WIDTH_SCALE = 0.8;
+const isHalfWidthAlphanumeric = (character: string) => /^[A-Za-z0-9]$/.test(character);
+
+const drawMixedWidthText = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  anchorX: number,
+  y: number,
+  align: CanvasTextAlign,
+  letterSpacing: number
+) => {
+  ctx.textAlign = 'left';
+  if ('letterSpacing' in ctx) {
+    (ctx as any).letterSpacing = '0px';
+  }
+
+  const characters = Array.from(text);
+  const glyphs = characters.map((character) => {
+    const scaleX = isHalfWidthAlphanumeric(character)
+      ? SECONDARY_ALPHANUMERIC_WIDTH_SCALE
+      : 1;
+
+    return {
+      character,
+      scaleX,
+      width: ctx.measureText(character).width * scaleX
+    };
+  });
+
+  const totalWidth = glyphs.reduce((sum, glyph) => sum + glyph.width, 0)
+    + Math.max(0, glyphs.length - 1) * letterSpacing;
+
+  let currentX = anchorX;
+  if (align === 'center') currentX -= totalWidth / 2;
+  if (align === 'right' || align === 'end') currentX -= totalWidth;
+
+  glyphs.forEach((glyph, index) => {
+    if (glyph.scaleX === 1) {
+      ctx.fillText(glyph.character, currentX, y);
+    } else {
+      ctx.save();
+      ctx.translate(currentX, y);
+      ctx.scale(glyph.scaleX, 1);
+      ctx.fillText(glyph.character, 0, 0);
+      ctx.restore();
+    }
+
+    currentX += glyph.width;
+    if (index < glyphs.length - 1) currentX += letterSpacing;
+  });
+};
+
 export const generateStickerCanvas = async (config: StickerConfig): Promise<HTMLCanvasElement> => {
+  if ('fonts' in document) {
+    const fontName = config.fontFamily === 'serif' ? 'Noto Serif TC' : 'Noto Sans TC';
+    await Promise.all([
+      document.fonts.load(`400 100px "${fontName}"`),
+      document.fonts.load(`700 100px "${fontName}"`),
+      document.fonts.load(`900 100px "${fontName}"`)
+    ]);
+  }
+
   const canvas = document.createElement('canvas');
   const W = 960;
   const H = 960;
@@ -51,24 +106,26 @@ export const generateStickerCanvas = async (config: StickerConfig): Promise<HTML
   ctx.fillRect(0, 0, W, topH);
 
   // 3. Draw Top Text
-  const validLines = config.titleLines.filter(l => l.text.trim().length > 0);
+  const validLines = config.titleLines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => line.text.trim().length > 0);
   if (validLines.length > 0) {
     const fontStr = getFontFamilyString(config.fontFamily);
     const baseSize = W * 0.052; // ~50px at 960p
 
     // Pre-calculate heights of all lines to center them vertically in topH
-    const lineMetrics = validLines.map(line => {
+    const lineMetrics = validLines.map(({ line, index }) => {
       const fontSize = Math.round(baseSize * line.fontSize);
       const weight = line.fontWeight === 'extrabold' ? '900' : line.fontWeight === 'bold' ? '700' : '400';
       ctx.font = `${weight} ${fontSize}px ${fontStr}`;
       
       // Approximate line height
-      const lineHeight = fontSize * 1.32;
-      return { line, fontSize, weight, lineHeight };
+      const lineHeight = fontSize * 1.1;
+      return { line, index, fontSize, weight, lineHeight };
     });
 
     const totalTextBlockHeight = lineMetrics.reduce((sum, m) => sum + m.lineHeight, 0);
-    let currentY = (topH - totalTextBlockHeight) / 2 + (lineMetrics[0]?.fontSize || 0);
+    let currentY = (topH - totalTextBlockHeight) / 2 + (lineMetrics[0]?.fontSize || 0) - 20;
 
     for (const metric of lineMetrics) {
       ctx.font = `${metric.weight} ${metric.fontSize}px ${fontStr}`;
@@ -85,7 +142,18 @@ export const generateStickerCanvas = async (config: StickerConfig): Promise<HTML
       if (config.textAlign === 'left') drawX = W * 0.08;
       if (config.textAlign === 'right') drawX = W * 0.92;
 
-      ctx.fillText(metric.line.text, drawX, currentY);
+      if (metric.index === 0) {
+        ctx.fillText(metric.line.text, drawX, currentY);
+      } else {
+        drawMixedWidthText(
+          ctx,
+          metric.line.text,
+          drawX,
+          currentY,
+          config.textAlign,
+          metric.line.letterSpacing * (W / 600)
+        );
+      }
       currentY += metric.lineHeight;
     }
   }

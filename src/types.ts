@@ -1,4 +1,4 @@
-export type FontFamily = 'serif' | 'sans' | 'rounded' | 'kai';
+export type FontFamily = 'serif' | 'sans';
 
 export interface TextLine {
   id: string;
@@ -33,4 +33,3 @@ export interface SampleInspiration {
   category: string;
   config: Partial<StickerConfig>;
 }
-

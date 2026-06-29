@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Download, Sparkles, Eye, ShieldCheck } from 'lucide-react';
 import { StickerConfig } from '../types';
 import { downloadCanvas, generateStickerCanvas } from '../utils/canvasExporter';
@@ -9,29 +9,52 @@ interface StickerPreviewProps {
 
 export const StickerPreview: React.FC<StickerPreviewProps> = ({ config }) => {
   const [loading, setLoading] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [imageAspectRatios, setImageAspectRatios] = useState<Record<number, number>>({});
-  const slotAspectRatio = (1 / 3) / (1 - config.topHalfRatio / 100);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const getFontClass = () => {
-    switch (config.fontFamily) {
-      case 'serif': return 'font-serif';
-      case 'sans': return 'font-sans';
-      case 'rounded': return 'font-sans tracking-wide';
-      case 'kai': return 'font-serif italic';
-      default: return 'font-sans';
-    }
-  };
+  useEffect(() => {
+    let cancelled = false;
+    setPreviewReady(false);
+
+    const renderPreview = async () => {
+      try {
+        const renderedCanvas = await generateStickerCanvas(config);
+        if (cancelled || !previewCanvasRef.current) return;
+
+        const previewCanvas = previewCanvasRef.current;
+        const context = previewCanvas.getContext('2d');
+        if (!context) return;
+
+        context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        context.drawImage(renderedCanvas, 0, 0);
+        setPreviewReady(true);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Preview render error:', err);
+        }
+      }
+    };
+
+    void renderPreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config]);
 
   const handleDownload = async (format: 'png' | 'jpg') => {
     setLoading(true);
     try {
-      const canvas = await generateStickerCanvas(config);
+      const canvas = previewCanvasRef.current;
+      if (!canvas || !previewReady) {
+        throw new Error('Preview is not ready');
+      }
       const titleStr = config.titleLines[0]?.text || '貼圖分享';
       const safeFilename = titleStr.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_').slice(0, 20) || 'Top3_Sticker';
       downloadCanvas(canvas, `${safeFilename}_${Date.now().toString().slice(-4)}`, format);
@@ -59,84 +82,13 @@ export const StickerPreview: React.FC<StickerPreviewProps> = ({ config }) => {
       {/* Live Preview Canvas Container */}
       <div className="w-full max-w-md mx-auto mb-6">
         <div className="relative w-full aspect-square overflow-hidden shadow-2xl rounded-xl border border-slate-700/80 transition duration-300 select-none bg-white">
-          <div className="absolute inset-0 flex flex-col">
-            {/* Top Half (Text) */}
-            <div
-              className={`w-full flex flex-col justify-center px-6 transition-colors duration-200 ${getFontClass()}`}
-              style={{
-                height: `${config.topHalfRatio}%`,
-                backgroundColor: config.bgColor,
-                color: config.textColor,
-                textAlign: config.textAlign
-              }}
-            >
-              <div className="flex flex-col justify-center my-auto space-y-1 sm:space-y-2 py-4">
-                {config.titleLines.map((line) => {
-                  if (!line.text) return null;
-                  const relativeSizeRem = line.fontSize * 1.1; // scale for preview DOM
-                  return (
-                    <div
-                      key={line.id}
-                      className={`leading-tight ${line.fontWeight === 'extrabold' ? 'font-black' : line.fontWeight === 'bold' ? 'font-bold' : 'font-normal'}`}
-                      style={{
-                        fontSize: `${relativeSizeRem}rem`,
-                        letterSpacing: `${line.letterSpacing * 0.5}px`
-                      }}
-                    >
-                      {line.text}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bottom Half (3 Images Side by Side, seamless gap=0) */}
-            <div className="w-full flex-1 flex transition-all duration-200 bg-white gap-0">
-              {config.slots.map((slot, idx) => (
-                <div
-                  key={slot.id}
-                  className="flex-1 relative overflow-hidden bg-slate-900 flex items-center justify-center"
-                >
-                  {slot.url ? (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center"
-                      style={{
-                        transform: `scale(${slot.zoom}) translate(${slot.offsetX / slot.zoom}%, ${slot.offsetY / slot.zoom}%)`
-                      }}
-                    >
-                      <img
-                        src={slot.url}
-                        alt={slot.name}
-                        onLoad={(event) => {
-                          const { naturalWidth, naturalHeight } = event.currentTarget;
-                          if (naturalWidth && naturalHeight) {
-                            setImageAspectRatios((current) => ({
-                              ...current,
-                              [slot.id]: naturalWidth / naturalHeight
-                            }));
-                          }
-                        }}
-                        className="max-w-none max-h-none select-none pointer-events-none"
-                        style={{
-                          width: (imageAspectRatios[slot.id] ?? slotAspectRatio) > slotAspectRatio ? 'auto' : '100%',
-                          height: (imageAspectRatios[slot.id] ?? slotAspectRatio) > slotAspectRatio ? '100%' : 'auto'
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-center p-2">
-                      <span
-                        className="text-xs font-bold px-2 py-1 rounded select-none opacity-60"
-                        style={{ color: config.bgColor }}
-                      >
-                        + 圖 #{idx + 1}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <canvas
+            ref={previewCanvasRef}
+            width={960}
+            height={960}
+            className="block w-full h-full"
+            aria-label="貼圖輸出預覽"
+          />
         </div>
       </div>
 
@@ -144,7 +96,7 @@ export const StickerPreview: React.FC<StickerPreviewProps> = ({ config }) => {
       <div className="w-full">
         <button
           onClick={() => handleDownload('jpg')}
-          disabled={loading}
+          disabled={loading || !previewReady}
           className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-base shadow-lg shadow-emerald-500/25 transition transform active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           {loading ? (

@@ -71,10 +71,8 @@ export const TextControls: React.FC<TextControlsProps> = ({ config, onChange }) 
           onChange={(e) => onChange({ fontFamily: e.target.value as FontFamily })}
           className="bg-slate-800 text-emerald-400 text-xs sm:text-sm font-bold py-1.5 px-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
         >
-          <option value="serif">經典宋體</option>
-          <option value="sans">現代黑體</option>
-          <option value="rounded">溫潤圓體</option>
-          <option value="kai">書法楷體</option>
+          <option value="serif">宋體 Noto Serif TC</option>
+          <option value="sans">黑體 Noto Sans TC</option>
         </select>
       </div>
 

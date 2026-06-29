@@ -78,9 +78,9 @@ export const ColorControls: React.FC<ColorControlsProps> = ({ config, onChange }
             className="w-full accent-emerald-500 h-2 bg-slate-900 rounded-lg cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
-            <span>文字區多 (70%)</span>
+            <span>文字區少 (35%)</span>
             <span>半半平衡 (50%)</span>
-            <span>圖片區多 (35%)</span>
+            <span>圖片區多 (70%)</span>
           </div>
         </div>
       </div>
