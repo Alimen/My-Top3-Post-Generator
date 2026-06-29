@@ -10,6 +10,8 @@ interface StickerPreviewProps {
 export const StickerPreview: React.FC<StickerPreviewProps> = ({ config }) => {
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<number, number>>({});
+  const slotAspectRatio = (1 / 3) / (1 - config.topHalfRatio / 100);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -96,14 +98,31 @@ export const StickerPreview: React.FC<StickerPreviewProps> = ({ config }) => {
                   className="flex-1 relative overflow-hidden bg-slate-900 flex items-center justify-center"
                 >
                   {slot.url ? (
-                    <img
-                      src={slot.url}
-                      alt={slot.name}
-                      className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+                    <div
+                      className="absolute inset-0 flex items-center justify-center"
                       style={{
                         transform: `scale(${slot.zoom}) translate(${slot.offsetX / slot.zoom}%, ${slot.offsetY / slot.zoom}%)`
                       }}
-                    />
+                    >
+                      <img
+                        src={slot.url}
+                        alt={slot.name}
+                        onLoad={(event) => {
+                          const { naturalWidth, naturalHeight } = event.currentTarget;
+                          if (naturalWidth && naturalHeight) {
+                            setImageAspectRatios((current) => ({
+                              ...current,
+                              [slot.id]: naturalWidth / naturalHeight
+                            }));
+                          }
+                        }}
+                        className="max-w-none max-h-none select-none pointer-events-none"
+                        style={{
+                          width: (imageAspectRatios[slot.id] ?? slotAspectRatio) > slotAspectRatio ? 'auto' : '100%',
+                          height: (imageAspectRatios[slot.id] ?? slotAspectRatio) > slotAspectRatio ? '100%' : 'auto'
+                        }}
+                      />
+                    </div>
                   ) : (
                     <div className="text-center p-2">
                       <span

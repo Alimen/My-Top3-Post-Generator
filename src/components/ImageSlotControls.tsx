@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { ImageIcon, Upload, Trash2, ZoomIn, ArrowLeftRight, MoveHorizontal, MoveVertical } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ImageIcon, Upload, Trash2, ZoomIn, ArrowLeftRight, MoveHorizontal, MoveVertical, RotateCcw } from 'lucide-react';
 import { ImageSlot } from '../types';
 
 interface ImageSlotControlsProps {
@@ -10,6 +10,7 @@ interface ImageSlotControlsProps {
 
 export const ImageSlotControls: React.FC<ImageSlotControlsProps> = ({ slots, topHalfRatio, onChange }) => {
   const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<number, number>>({});
   const slotAspectRatio = (1 / 3) / (1 - topHalfRatio / 100);
 
   const handleFileUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,7 +24,10 @@ export const ImageSlotControls: React.FC<ImageSlotControlsProps> = ({ slots, top
       nextSlots[index] = {
         ...nextSlots[index],
         url: dataUrl,
-        name: file.name
+        name: file.name,
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0
       };
       onChange(nextSlots);
     };
@@ -38,7 +42,25 @@ export const ImageSlotControls: React.FC<ImageSlotControlsProps> = ({ slots, top
 
   const handleRemoveImage = (index: number) => {
     const nextSlots = [...slots];
-    nextSlots[index] = { ...nextSlots[index], url: null, name: `素材 ${index + 1}` };
+    nextSlots[index] = {
+      ...nextSlots[index],
+      url: null,
+      name: `素材 ${index + 1}`,
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0
+    };
+    onChange(nextSlots);
+  };
+
+  const handleResetImage = (index: number) => {
+    const nextSlots = [...slots];
+    nextSlots[index] = {
+      ...nextSlots[index],
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0
+    };
     onChange(nextSlots);
   };
 
@@ -86,13 +108,23 @@ export const ImageSlotControls: React.FC<ImageSlotControlsProps> = ({ slots, top
                   </button>
                 )}
                 {slot.url && (
-                  <button
-                    onClick={() => handleRemoveImage(idx)}
-                    className="p-1 text-slate-400 hover:text-rose-400 rounded hover:bg-slate-800 transition cursor-pointer"
-                    title="移除圖片"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleResetImage(idx)}
+                      className="p-1 text-slate-400 hover:text-emerald-400 rounded hover:bg-slate-800 transition cursor-pointer"
+                      title="復原圖片縮放與位置"
+                      aria-label={`復原圖片 ${idx + 1} 的縮放與位置`}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveImage(idx)}
+                      className="p-1 text-slate-400 hover:text-rose-400 rounded hover:bg-slate-800 transition cursor-pointer"
+                      title="移除圖片"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -105,14 +137,31 @@ export const ImageSlotControls: React.FC<ImageSlotControlsProps> = ({ slots, top
             >
               {slot.url ? (
                 <>
-                  <img
-                    src={slot.url}
-                    alt={slot.name}
-                    className="w-full h-full object-cover transition duration-300 group-hover/img:scale-105"
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
                     style={{
                       transform: `scale(${slot.zoom}) translate(${slot.offsetX / slot.zoom}%, ${slot.offsetY / slot.zoom}%)`
                     }}
-                  />
+                  >
+                    <img
+                      src={slot.url}
+                      alt={slot.name}
+                      onLoad={(event) => {
+                        const { naturalWidth, naturalHeight } = event.currentTarget;
+                        if (naturalWidth && naturalHeight) {
+                          setImageAspectRatios((current) => ({
+                            ...current,
+                            [slot.id]: naturalWidth / naturalHeight
+                          }));
+                        }
+                      }}
+                      className="max-w-none max-h-none transition duration-300"
+                      style={{
+                        width: (imageAspectRatios[slot.id] ?? slotAspectRatio) > slotAspectRatio ? 'auto' : '100%',
+                        height: (imageAspectRatios[slot.id] ?? slotAspectRatio) > slotAspectRatio ? '100%' : 'auto'
+                      }}
+                    />
+                  </div>
                   <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1">
                     <Upload className="w-4 h-4" />
                     <span>點擊更換</span>
