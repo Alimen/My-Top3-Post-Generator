@@ -1,0 +1,6 @@
+{
+  "name": "Top3 貼圖生成器",
+  "description": "自訂上半部文字與配色，搭配下方三張精選圖片素材，一鍵快速合併匯出高品質社群分享貼圖。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
