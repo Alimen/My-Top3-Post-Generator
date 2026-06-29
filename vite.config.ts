@@ -3,10 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig(({command}) => {
+export default defineConfig(() => {
   return {
-    // GitHub Pages serves this project from a repository subdirectory.
-    base: command === 'build' ? '/My-Top3-Post-Generator/' : '/',
+    base: '/My-Top3-Post-Generator/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
@@ -22,3 +21,4 @@ export default defineConfig(({command}) => {
     },
   };
 });
+

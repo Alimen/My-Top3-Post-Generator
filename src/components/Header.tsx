@@ -19,6 +19,15 @@ export const Header: React.FC<HeaderProps> = () => {
               </span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-400">
+              <a
+                href="https://github.com/Alimen/My-Top3-Post-Generator"
+                target="_blank"
+                rel="noreferrer"
+                className="text-emerald-400 hover:text-emerald-300 transition"
+              >
+                Alimen/My-Top3-Post-Generator
+              </a>
+              {' · '}
               輸入上半部自訂文字與色塊，上傳下方三張素材，合成分享卡
             </p>
           </div>
